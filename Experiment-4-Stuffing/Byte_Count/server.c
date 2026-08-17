@@ -6,6 +6,7 @@
 
 #define MAX_FRAME_SIZE 120
 #define MAX_MSG_SIZE 100
+#define MAX_FINAL_FRAME 1000
 
 int stringLength(char str[])
 {
@@ -42,31 +43,64 @@ int stringToNumber(char str[], int end)
 
 int separateFrame(char frame[], char msg[], int *byteCount)
 {
-    int separatorIndex = -1;
     int msgIndex = 0;
 
-    for (int i = 0; frame[i] != '\0'; i++)
-    {
-        if (frame[i] == '|')
-        {
-            separatorIndex = i;
-            break;
-        }
-    }
-
-    if (separatorIndex == -1)
+    if (frame[0] < '0' || frame[0] > '9')
         return 0;
 
-    *byteCount = stringToNumber(frame, separatorIndex);
-    if (*byteCount < 0)
-        return 0;
+    *byteCount = frame[0] - '0';
 
-    for (int i = separatorIndex + 1; frame[i] != '\0'; i++)
+    for (int i = 1; frame[i] != '\0'; i++)
         msg[msgIndex++] = frame[i];
 
     msg[msgIndex] = '\0';
 
     return msgIndex == *byteCount;
+}
+
+void separateFinalFrame(char finalFrame[])
+{
+    int finalFrameLength = stringLength(finalFrame);
+    int frameStart = 0;
+    int frameNumber = 1;
+
+    while (frameStart < finalFrameLength)
+    {
+        char msg[MAX_MSG_SIZE];
+        int msgIndex = 0;
+
+        if (finalFrame[frameStart] < '0' || finalFrame[frameStart] > '9')
+        {
+            printf("Invalid frame: byte count is not valid.\n");
+            return;
+        }
+
+        int byteCount = finalFrame[frameStart] - '0';
+
+        if (byteCount >= MAX_MSG_SIZE)
+        {
+            printf("Invalid frame: message is too large.\n");
+            return;
+        }
+
+        if (frameStart + byteCount >= finalFrameLength)
+        {
+            printf("Invalid frame: byte count mismatch.\n");
+            return;
+        }
+
+        for (int i = frameStart + 1; i <= frameStart + byteCount; i++)
+            msg[msgIndex++] = finalFrame[i];
+
+        msg[msgIndex] = '\0';
+
+        printf("Frame %d\n", frameNumber);
+        printf("Byte count: %d\n", byteCount);
+        printf("Message: %s\n", msg);
+
+        frameStart = frameStart + byteCount + 1;
+        frameNumber++;
+    }
 }
 
 int main()
@@ -114,11 +148,8 @@ int main()
 
     printf("Client connected successfully.\n");
 
-    char frame[MAX_FRAME_SIZE];
-    char msg[MAX_MSG_SIZE];
-    int byteCount = 0;
-
-    int n = recv(clientSocket, frame, sizeof(frame) - 1, 0);
+    char finalFrame[MAX_FINAL_FRAME];
+    int n = recv(clientSocket, finalFrame, sizeof(finalFrame) - 1, 0);
     if (n <= 0)
     {
         perror("Receive failed");
@@ -127,19 +158,10 @@ int main()
         return 1;
     }
 
-    frame[n] = '\0';
+    finalFrame[n] = '\0';
 
-    printf("Received frame: %s\n", frame);
-
-    if (separateFrame(frame, msg, &byteCount))
-    {
-        printf("Byte count: %d\n", byteCount);
-        printf("Message: %s\n", msg);
-    }
-    else
-    {
-        printf("Invalid frame or byte count mismatch.\n");
-    }
+    printf("Received final frame: %s\n", finalFrame);
+    separateFinalFrame(finalFrame);
 
     char ack[] = "OK";
     send(clientSocket, ack, stringLength(ack) + 1, 0);

@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 
 #define MAX_MSG_SIZE 200
+#define MAX_FINAL_FRAME 1000
+#define FRAME_SEPARATOR '#'
 #define FLAG "FLAG"
 #define ESC "ESC"
 #define FLAG_LEN 4
@@ -85,6 +87,82 @@ void removeFlagPatterns(char msg[], char originalMsg[])
     originalMsg[originalIndex] = '\0';
 }
 
+void separateFinalFrame(char finalFrame[])
+{
+    int finalFrameLength = stringLength(finalFrame);
+    int currentIndex = 0;
+    int frameNumber = 1;
+
+    while (currentIndex < finalFrameLength)
+    {
+        char msg[MAX_MSG_SIZE];
+        char originalMsg[MAX_MSG_SIZE];
+        int msgIndex = 0;
+        int frameStart = -1;
+        int frameEnd = -1;
+
+        for (int i = currentIndex; i <= finalFrameLength - FLAG_LEN; i++)
+        {
+            if (matchesAt(finalFrame, i, FLAG, FLAG_LEN))
+            {
+                frameStart = i;
+                break;
+            }
+        }
+
+        if (frameStart == -1)
+            return;
+
+        for (int i = frameStart + FLAG_LEN; i <= finalFrameLength - FLAG_LEN; i++)
+        {
+            if (matchesAt(finalFrame, i, ESC, ESC_LEN) &&
+                i + ESC_LEN <= finalFrameLength - FLAG_LEN &&
+                matchesAt(finalFrame, i + ESC_LEN, FLAG, FLAG_LEN))
+            {
+                i += ESC_LEN + FLAG_LEN - 1;
+            }
+            else if (matchesAt(finalFrame, i, FLAG, FLAG_LEN))
+            {
+                frameEnd = i + FLAG_LEN;
+                break;
+            }
+        }
+
+        if (frameEnd == -1)
+        {
+            printf("Invalid frame: ending flag not found.\n");
+            return;
+        }
+
+        for (int i = frameStart; i < frameEnd; i++)
+        {
+            if (msgIndex + 1 >= MAX_MSG_SIZE)
+            {
+                printf("Invalid frame: frame is too large.\n");
+                return;
+            }
+
+            msg[msgIndex++] = finalFrame[i];
+        }
+
+        msg[msgIndex] = '\0';
+
+        /*
+        if (finalFrame[frameStart] == FRAME_SEPARATOR)
+            frameStart++;
+        */
+
+        removeFlagPatterns(msg, originalMsg);
+
+        printf("Frame %d\n", frameNumber);
+        printf("Received Msg: %s\n", msg);
+        printf("After skipping FLAG pattern: %s\n", originalMsg);
+
+        currentIndex = frameEnd;
+        frameNumber++;
+    }
+}
+
 int main()
 {
     int serverSocket, clientSocket;
@@ -133,11 +211,8 @@ int main()
 
     printf("Client connected successfully.\n");
 
-    char ack[] = "OK";
-
-    char msg[MAX_MSG_SIZE];
-    char originalMsg[MAX_MSG_SIZE];
-    int n = recv(clientSocket, msg, sizeof(msg) - 1, 0);
+    char finalFrame[MAX_FINAL_FRAME];
+    int n = recv(clientSocket, finalFrame, sizeof(finalFrame) - 1, 0);
     if (n <= 0)
     {
         perror("Receive failed");
@@ -146,11 +221,48 @@ int main()
         return 1;
     }
 
-    msg[n] = '\0';
-    removeFlagPatterns(msg, originalMsg);
-    printf("Received Msg: %s\n", msg);
-    printf("After skipping FLAG pattern: %s\n", originalMsg);
+    finalFrame[n] = '\0';
+    printf("Received final frame: %s\n", finalFrame);
+    separateFinalFrame(finalFrame);
+
+    char ack[] = "OK";
     send(clientSocket, ack, stringLength(ack) + 1, 0);
+
+    /*
+    int frameCount;
+    int n = recv(clientSocket, &frameCount, sizeof(frameCount), 0);
+    if (n <= 0)
+    {
+        perror("Receive failed");
+        close(clientSocket);
+        close(serverSocket);
+        return 1;
+    }
+
+    char ack[] = "OK";
+    send(clientSocket, ack, stringLength(ack) + 1, 0);
+
+    for (int i = 0; i < frameCount; i++)
+    {
+        char msg[MAX_MSG_SIZE];
+        char originalMsg[MAX_MSG_SIZE];
+        int n = recv(clientSocket, msg, sizeof(msg) - 1, 0);
+        if (n <= 0)
+        {
+            perror("Receive failed");
+            close(clientSocket);
+            close(serverSocket);
+            return 1;
+        }
+
+        msg[n] = '\0';
+        removeFlagPatterns(msg, originalMsg);
+        printf("Received Msg: %s\n", msg);
+        printf("After skipping FLAG pattern: %s\n", originalMsg);
+        send(clientSocket, ack, stringLength(ack) + 1, 0);
+    }
+    */
+
     close(clientSocket);
     close(serverSocket);
 

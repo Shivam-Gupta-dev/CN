@@ -6,10 +6,17 @@
 
 #define MAX_MSG_SIZE 100
 #define MAX_STUFFED_SIZE 200
+#define MAX_FINAL_FRAME 1000
+#define FRAME_SEPARATOR '#'
 #define FLAG "FLAG"
 #define ESC "ESC"
 #define FLAG_LEN 4
 #define ESC_LEN 3
+
+struct frames
+{
+    char frame[MAX_STUFFED_SIZE];
+};
 
 int stringLength(char str[])
 {
@@ -50,6 +57,44 @@ void copyCharacters(char destination[], int start, char source[], int sourceLeng
         destination[start + i] = source[i];
 }
 
+int byteStuff(char msg[], char stuffedMsg[])
+{
+    int msgLength = stringLength(msg);
+    int stuffedIndex = 0;
+
+    if (stuffedIndex + FLAG_LEN >= MAX_STUFFED_SIZE)
+        return 0;
+
+    copyCharacters(stuffedMsg, stuffedIndex, FLAG, FLAG_LEN);
+    stuffedIndex += FLAG_LEN;
+
+    for (int i = 0; i < msgLength; i++)
+    {
+        if (i <= msgLength - FLAG_LEN && matchesAt(msg, i, FLAG, FLAG_LEN))
+        {
+            if (stuffedIndex + ESC_LEN >= MAX_STUFFED_SIZE)
+                return 0;
+
+            copyCharacters(stuffedMsg, stuffedIndex, ESC, ESC_LEN);
+            stuffedIndex += ESC_LEN;
+        }
+
+        if (stuffedIndex + 1 >= MAX_STUFFED_SIZE)
+            return 0;
+
+        stuffedMsg[stuffedIndex++] = msg[i];
+    }
+
+    if (stuffedIndex + FLAG_LEN >= MAX_STUFFED_SIZE)
+        return 0;
+
+    copyCharacters(stuffedMsg, stuffedIndex, FLAG, FLAG_LEN);
+    stuffedIndex += FLAG_LEN;
+    stuffedMsg[stuffedIndex] = '\0';
+
+    return 1;
+}
+
 int main()
 {
     int clientSocket;
@@ -72,92 +117,115 @@ int main()
     else
         printf("connection is estableshed.\n");
 
-    char msg[MAX_MSG_SIZE];
-    int arr[MAX_MSG_SIZE];
-    int id = 0;
+    printf("Enter the no.of frames: ");
+    int frameCount;
+    scanf("%d", &frameCount);
+    struct frames f[frameCount];
+    getchar();
 
-    printf("Enter message: ");
-    if (fgets(msg, sizeof(msg), stdin) == NULL)
+    for (int i = 0; i < frameCount; i++)
     {
-        printf("failed to read message\n");
-        close(clientSocket);
-        return 1;
-    }
+        char msg[MAX_MSG_SIZE];
+        char stuffedMsg[MAX_STUFFED_SIZE];
 
-    removeNewline(msg);
-    int msgLength = stringLength(msg);
-
-    for (int i = 0; i <= msgLength - FLAG_LEN; i++)
-    {
-        if (matchesAt(msg, i, FLAG, FLAG_LEN))
+        printf("Enter message: ");
+        if (fgets(msg, sizeof(msg), stdin) == NULL)
         {
-            arr[id++] = i;
-        }
-    }
-
-    char stuffedMsg[MAX_STUFFED_SIZE];
-    int stuffedIndex = 0;
-    int arrIndex = 0;
-
-    if (stuffedIndex + FLAG_LEN >= MAX_STUFFED_SIZE)
-    {
-        printf("stuffed message is too large\n");
-        close(clientSocket);
-        return 1;
-    }
-
-    copyCharacters(stuffedMsg, stuffedIndex, FLAG, FLAG_LEN);
-    stuffedIndex += FLAG_LEN;
-
-    for (int i = 0; i < msgLength; i++)
-    {
-        if (arrIndex < id && arr[arrIndex] == i)
-        {
-            if (stuffedIndex + ESC_LEN >= MAX_STUFFED_SIZE)
-            {
-                printf("stuffed message is too large\n");
-                close(clientSocket);
-                return 1;
-            }
-
-            copyCharacters(stuffedMsg, stuffedIndex, ESC, ESC_LEN);
-            stuffedIndex += ESC_LEN;
-            arrIndex++;
+            printf("failed to read message\n");
+            close(clientSocket);
+            return 1;
         }
 
-        if (stuffedIndex + 1 >= MAX_STUFFED_SIZE)
+        removeNewline(msg);
+
+        if (!byteStuff(msg, stuffedMsg))
         {
             printf("stuffed message is too large\n");
             close(clientSocket);
             return 1;
         }
 
-        stuffedMsg[stuffedIndex++] = msg[i];
+        copyCharacters(f[i].frame, 0, stuffedMsg, stringLength(stuffedMsg) + 1);
+
+        printf("Original message: %s\n", msg);
+        printf("Stuffed message: %s\n", stuffedMsg);
     }
 
-    if (stuffedIndex + FLAG_LEN >= MAX_STUFFED_SIZE)
+    char finalFrame[MAX_FINAL_FRAME];
+    int finalIndex = 0;
+    for (int i = 0; i < frameCount; i++)
     {
-        printf("stuffed message is too large\n");
+        copyCharacters(finalFrame, finalIndex, f[i].frame, stringLength(f[i].frame));
+        finalIndex += stringLength(f[i].frame);
+        /*
+        if (i != frameCount - 1)
+            finalFrame[finalIndex++] = FRAME_SEPARATOR;
+        */
+    }
+    finalFrame[finalIndex] = '\0';
+
+    printf("Final frame: %s\n", finalFrame);
+    send(clientSocket, finalFrame, stringLength(finalFrame) + 1, 0);
+
+    char ackMsg[10];
+    int receivedBits = recv(clientSocket, ackMsg, sizeof(ackMsg) - 1, 0);
+    if (receivedBits > 0)
+    {
+        ackMsg[receivedBits] = '\0';
+        if (receivedBits >= 2 && matchesAt(ackMsg, 0, "OK", 2))
+            printf("Acknowledgment received.\n");
+    }
+    else
+    {
+        perror("Receive failed");
         close(clientSocket);
         return 1;
     }
 
-    copyCharacters(stuffedMsg, stuffedIndex, FLAG, FLAG_LEN);
-    stuffedIndex += FLAG_LEN;
-    stuffedMsg[stuffedIndex] = '\0';
-
-    printf("Original message: %s\n", msg);
-    printf("Stuffed message: %s\n", stuffedMsg);
-
-    send(clientSocket, stuffedMsg, stringLength(stuffedMsg) + 1, 0);
+    /*
+    send(clientSocket, &frameCount, sizeof(frameCount), 0);
     char ackMsg[10];
-    int n = recv(clientSocket, ackMsg, sizeof(ackMsg) - 1, 0);
-    if (n > 0)
+    int receivedBits = recv(clientSocket, ackMsg, sizeof(ackMsg) - 1, 0);
+    if (receivedBits > 0)
     {
-        ackMsg[n] = '\0';
-        if (n >= 2 && matchesAt(ackMsg, 0, "OK", 2))
-            printf("Acknowledgment received.");
+        ackMsg[receivedBits] = '\0';
+        if (receivedBits >= 2 && matchesAt(ackMsg, 0, "OK", 2))
+            printf("Acknowledgment received.\n");
     }
+    else
+    {
+        perror("Receive failed");
+        close(clientSocket);
+        return 1;
+    }
+
+    for (int i = 0; i < frameCount; i++)
+    {
+        send(clientSocket, f[i].frame, stringLength(f[i].frame) + 1, 0);
+
+        char ackMsg[10];
+        int receivedBits = recv(clientSocket, ackMsg, sizeof(ackMsg) - 1, 0);
+        if (receivedBits > 0)
+        {
+            ackMsg[receivedBits] = '\0';
+            if (receivedBits >= 2 && matchesAt(ackMsg, 0, "OK", 2))
+                printf("Acknowledgment received.\n");
+            else
+            {
+                printf("Acknowledgment not received.\n");
+                close(clientSocket);
+                return 1;
+            }
+        }
+        else
+        {
+            perror("Receive failed");
+            close(clientSocket);
+            return 1;
+        }
+    }
+    */
+
     close(clientSocket);
 
     return 0;

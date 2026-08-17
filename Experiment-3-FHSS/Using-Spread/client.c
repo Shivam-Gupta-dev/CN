@@ -36,7 +36,7 @@ int main()
     {
         p[i].sequenceNumber = i + 1;
         strcpy(p[i].data,"000");
-        p[i].data[2 - i] = a[2 - i] == '1' ? '1' : '0';
+        p[i].data[i] = a[i] == '1' ? '1' : '0';
     }
 
     int constatus = connect(clientSocket, (struct sockaddr *)&serveraddress, sizeof(serveraddress));
@@ -46,7 +46,7 @@ int main()
     else
         printf("connection is established.\n");
 
-    int freq[7] = {100, 200, 300, 400, 500, 600, 700};
+    // int freq[7] = {100, 200, 300, 400, 500, 600, 700};
 
     char ack[10];
 

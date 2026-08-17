@@ -6,8 +6,15 @@
 
 #define MAX_BITS 100
 #define MAX_STUFFED_BITS 250
+#define MAX_FINAL_FRAME 1000
+#define FRAME_SEPARATOR '#'
 #define FLAG "01111110"
 #define FLAG_LEN 8
+
+struct frames
+{
+    char frame[MAX_STUFFED_BITS];
+};
 
 int stringLength(char str[])
 {
@@ -119,46 +126,122 @@ int main()
     }
     printf("connection is established.\n");
 
-    char bits[MAX_BITS];
-    char stuffedBits[MAX_STUFFED_BITS];
+    printf("Enter the no.of frames: ");
+    int frameCount;
+    scanf("%d", &frameCount);
+    struct frames f[frameCount];
+    getchar();
 
-    printf("Enter bits: ");
-    if (fgets(bits, sizeof(bits), stdin) == NULL)
+    for (int i = 0; i < frameCount; i++)
     {
-        printf("failed to read bits\n");
-        close(clientSocket);
-        return 1;
+        char bits[MAX_BITS];
+        char stuffedBits[MAX_STUFFED_BITS];
+
+        printf("Enter bits: ");
+        if (fgets(bits, sizeof(bits), stdin) == NULL)
+        {
+            printf("failed to read bits\n");
+            close(clientSocket);
+            return 1;
+        }
+
+        removeNewline(bits);
+
+        if (!isValidBitString(bits))
+        {
+            printf("Enter only 0 and 1.\n");
+            close(clientSocket);
+            return 1;
+        }
+
+        if (!bitStuff(bits, stuffedBits))
+        {
+            printf("stuffed bits are too large\n");
+            close(clientSocket);
+            return 1;
+        }
+
+        int j = 0;
+        copyCharacters(f[i].frame, &j, stuffedBits, stringLength(stuffedBits) + 1);
+
+        printf("Original bits: %s\n", bits);
+        printf("Stuffed bits: %s\n", stuffedBits);
     }
 
-    removeNewline(bits);
-
-    if (!isValidBitString(bits))
+    char finalFrame[MAX_FINAL_FRAME];
+    int finalIndex = 0;
+    for (int i = 0; i < frameCount; i++)
     {
-        printf("Enter only 0 and 1.\n");
-        close(clientSocket);
-        return 1;
+        copyCharacters(finalFrame, &finalIndex, f[i].frame, stringLength(f[i].frame));
+        /*
+        if (i != frameCount - 1)
+            finalFrame[finalIndex++] = FRAME_SEPARATOR;
+        */
     }
+    finalFrame[finalIndex] = '\0';
 
-    if (!bitStuff(bits, stuffedBits))
-    {
-        printf("stuffed bits are too large\n");
-        close(clientSocket);
-        return 1;
-    }
-
-    printf("Original bits: %s\n", bits);
-    printf("Stuffed bits: %s\n", stuffedBits);
-
-    send(clientSocket, stuffedBits, stringLength(stuffedBits) + 1, 0);
+    printf("Final frame: %s\n", finalFrame);
+    send(clientSocket, finalFrame, stringLength(finalFrame) + 1, 0);
 
     char ack[10];
-    int n = recv(clientSocket, ack, sizeof(ack) - 1, 0);
-    if (n > 0)
+    int receivedBits = recv(clientSocket, ack, sizeof(ack) - 1, 0);
+    if (receivedBits > 0)
     {
-        ack[n] = '\0';
-        if (n >= 2 && matchesAt(ack, 0, "OK", 2))
+        ack[receivedBits] = '\0';
+        if (receivedBits >= 2 && matchesAt(ack, 0, "OK", 2))
             printf("Acknowledgment received.\n");
     }
+    else
+    {
+        perror("Receive failed");
+        close(clientSocket);
+        return 1;
+    }
+
+    /*
+    send(clientSocket, &frameCount, sizeof(frameCount), 0);
+
+    char ack[10];
+    int receivedBits = recv(clientSocket, ack, sizeof(ack) - 1, 0);
+    if (receivedBits > 0)
+    {
+        ack[receivedBits] = '\0';
+        if (receivedBits >= 2 && matchesAt(ack, 0, "OK", 2))
+            printf("Acknowledgment received.\n");
+    }
+    else
+    {
+        perror("Receive failed");
+        close(clientSocket);
+        return 1;
+    }
+
+    for (int i = 0; i < frameCount; i++)
+    {
+        send(clientSocket, f[i].frame, stringLength(f[i].frame) + 1, 0);
+
+        char ack[10];
+        int receivedBits = recv(clientSocket, ack, sizeof(ack) - 1, 0);
+        if (receivedBits > 0)
+        {
+            ack[receivedBits] = '\0';
+            if (receivedBits >= 2 && matchesAt(ack, 0, "OK", 2))
+                printf("Acknowledgment received.\n");
+            else
+            {
+                printf("Acknowledgment not received.\n");
+                close(clientSocket);
+                return 1;
+            }
+        }
+        else
+        {
+            perror("Receive failed");
+            close(clientSocket);
+            return 1;
+        }
+    }
+    */
 
     close(clientSocket);
 
