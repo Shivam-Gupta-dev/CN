@@ -23,17 +23,22 @@ double elapsedSeconds(long long startTime)
     return (currentTimeMs() - startTime) / 1000.0;
 }
 
-int shouldDropInChannel(int frame, int lostFrames[], int lossDone[], int lossCount)
+int shouldDropInChannel(
+    int frame,
+    int base,
+    int lostPositionInWindow,
+    int *lastDroppedWindowBase
+)
 {
-    int i;
+    int lostFrameInWindow = base + lostPositionInWindow - 1;
 
-    for (i = 0; i < lossCount; i++)
+    if (lostPositionInWindow <= 0)
+        return 0;
+
+    if (frame == lostFrameInWindow && *lastDroppedWindowBase != base)
     {
-        if (lostFrames[i] == frame && lossDone[i] == 0)
-        {
-            lossDone[i] = 1;
-            return 1;
-        }
+        *lastDroppedWindowBase = base;
+        return 1;
     }
 
     return 0;
@@ -47,12 +52,12 @@ int main()
 
     int totalFrames;
     int windowSize;
-    int lossCount;
-    int lostFrames[MAX_FRAMES];
-    int lossDone[MAX_FRAMES] = {0};
+    int lostPositionInWindow;
 
     int base = 0;
     int nextFrame = 0;
+    int totalTransmissions = 0;
+    int lastDroppedWindowBase = -1;
     long long startTime;
 
     printf("=================================\n");
@@ -68,22 +73,16 @@ int main()
     printf("Enter window size: ");
     scanf("%d", &windowSize);
 
-    printf("Enter number of frames to lose: ");
-    scanf("%d", &lossCount);
+    if (windowSize <= 0)
+        windowSize = 1;
+    if (windowSize > totalFrames)
+        windowSize = totalFrames;
 
-    if (lossCount < 0)
-        lossCount = 0;
-    if (lossCount > MAX_FRAMES)
-        lossCount = MAX_FRAMES;
+    printf("Enter packet position to lose in every window (1 to %d, 0 for no loss): ", windowSize);
+    scanf("%d", &lostPositionInWindow);
 
-    printf("Enter frame numbers to lose: ");
-    for (int i = 0; i < lossCount; i++)
-    {
-        scanf("%d", &lostFrames[i]);
-
-        if (lostFrames[i] < 0 || lostFrames[i] >= totalFrames)
-            lostFrames[i] = -1;
-    }
+    if (lostPositionInWindow < 0 || lostPositionInWindow > windowSize)
+        lostPositionInWindow = 0;
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -128,19 +127,31 @@ int main()
             nextFrame < base + windowSize &&
             nextFrame < totalFrames)
         {
+            totalTransmissions++;
+
             printf(
-                "[%.3fs] Sender sends Frame %d (window: %d to %d)\n",
+                "[%.3fs] Transmission %d: Sender sends Frame %d (window: %d to %d)\n",
                 elapsedSeconds(startTime),
+                totalTransmissions,
                 nextFrame,
                 base,
                 base + windowSize - 1);
 
-            if (shouldDropInChannel(nextFrame, lostFrames, lossDone, lossCount))
+            if (shouldDropInChannel(
+                    nextFrame,
+                    base,
+                    lostPositionInWindow,
+                    &lastDroppedWindowBase))
             {
                 printf(
-                    "[%.3fs] Channel drops Frame %d; sender will know only after timeout\n",
+                    "[%.3fs] Channel drops packet position %d of this window: transmission %d carrying Frame %d\n",
                     elapsedSeconds(startTime),
+                    lostPositionInWindow,
+                    totalTransmissions,
                     nextFrame);
+                printf(
+                    "[%.3fs] Sender will know only after timeout\n",
+                    elapsedSeconds(startTime));
             }
             else
             {
@@ -221,7 +232,9 @@ int main()
 
     printf(
         "\n[%.3fs] All frames transmitted successfully.\n",
-        elapsedSeconds(startTime));
+        elapsedSeconds(startTime)
+    );
+    printf("Total transmission attempts: %d\n", totalTransmissions);
 
     close(sock);
 

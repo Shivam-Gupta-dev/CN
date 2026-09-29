@@ -50,11 +50,15 @@ void sendOrDropFrame(
     int lossDone[],
     int lossCount,
     long long sendTime[],
-    long long startTime)
+    long long startTime,
+    int *totalTransmissions)
 {
+    (*totalTransmissions)++;
+
     printf(
-        "[%.3fs] Sender sends Frame %d (window: %d to %d)\n",
+        "[%.3fs] Transmission %d: Sender sends Frame %d (window: %d to %d)\n",
         elapsedSeconds(startTime),
+        *totalTransmissions,
         frame,
         base,
         base + windowSize - 1);
@@ -62,8 +66,9 @@ void sendOrDropFrame(
     if (shouldDropInChannel(frame, lostFrames, lossDone, lossCount))
     {
         printf(
-            "[%.3fs] Channel drops Frame %d; sender will know only after timeout\n",
+            "[%.3fs] Channel drops transmission %d carrying Frame %d; sender will know only after timeout\n",
             elapsedSeconds(startTime),
+            *totalTransmissions,
             frame);
     }
     else
@@ -97,6 +102,7 @@ int main()
 
     int base = 0;
     int nextFrame = 0;
+    int totalTransmissions = 0;
     long long startTime;
 
     printf("=================================\n");
@@ -189,7 +195,8 @@ int main()
                 lossDone,
                 lossCount,
                 sendTime,
-                startTime);
+                startTime,
+                &totalTransmissions);
 
             nextFrame++;
         }
@@ -272,7 +279,8 @@ int main()
                         lossDone,
                         lossCount,
                         sendTime,
-                        startTime);
+                        startTime,
+                        &totalTransmissions);
                 }
             }
         }
@@ -293,6 +301,7 @@ int main()
     printf(
         "\n[%.3fs] All frames transmitted successfully.\n",
         elapsedSeconds(startTime));
+    printf("Total transmission attempts: %d\n", totalTransmissions);
 
     close(sock);
 
