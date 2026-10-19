@@ -5,20 +5,23 @@
 
 #define MAX_SUBNETS 64
 
-struct request {
+struct request
+{
     int address[4];
     int prefix;
     int borrowed_bits;
 };
 
-struct subnet {
+struct subnet
+{
     unsigned long long network;
     unsigned long long first;
     unsigned long long last;
     unsigned long long broadcast;
 };
 
-struct response {
+struct response
+{
     int valid;
     int new_prefix;
     unsigned long long subnet_count;
@@ -27,7 +30,8 @@ struct response {
     struct subnet subnet[MAX_SUBNETS];
 };
 
-unsigned long long power_two(int bits) {
+unsigned long long power_two(int bits)
+{
     unsigned long long value = 1;
     int i;
 
@@ -37,14 +41,17 @@ unsigned long long power_two(int bits) {
     return value;
 }
 
-unsigned long long make_address(int address[4]) {
+unsigned long long make_address(int address[4])
+{
     return ((unsigned long long)address[0] << 24) | ((unsigned long long)address[1] << 16) | ((unsigned long long)address[2] << 8) | (unsigned long long)address[3];
 }
 
-int valid_address(int address[4]) {
+int valid_address(int address[4])
+{
     int i;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 4; i++)
+    {
         if (address[i] < 0 || address[i] > 255)
             return 0;
     }
@@ -52,7 +59,8 @@ int valid_address(int address[4]) {
     return 1;
 }
 
-void calculate(struct request *request, struct response *response) {
+void calculate(struct request *request, struct response *response)
+{
     unsigned long long base;
     unsigned long long block_size;
     unsigned long long subnet_count;
@@ -80,7 +88,8 @@ void calculate(struct request *request, struct response *response) {
     response->count = subnet_count < MAX_SUBNETS ? (int)subnet_count : MAX_SUBNETS;
 
     network = base;
-    for (i = 0; i < response->count; i++) {
+    for (i = 0; i < response->count; i++)
+    {
         response->subnet[i].network = network;
         response->subnet[i].first = network + 1;
         response->subnet[i].last = network + block_size - 2;
@@ -89,7 +98,8 @@ void calculate(struct request *request, struct response *response) {
     }
 }
 
-int main(void) {
+int main(void)
+{
     int socket_fd;
     int client_fd;
     int option = 1;

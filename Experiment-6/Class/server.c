@@ -15,6 +15,11 @@ struct ip_result {
     int broadcast[4];
 };
 
+struct ip_request {
+    int address[4];
+    int prefix;
+};
+
 int valid_octets(int address[4]) {
     int i;
 
@@ -26,7 +31,7 @@ int valid_octets(int address[4]) {
     return 1;
 }
 
-void calculate_ip_details(int address[4], struct ip_result *result) {
+void calculate_ip_details(int address[4], int cidr_prefix, struct ip_result *result) {
     int host_start;
     int i;
 
@@ -69,6 +74,40 @@ void calculate_ip_details(int address[4], struct ip_result *result) {
         host_start = 4;
     }
 
+    if (cidr_prefix >= 0 && address[0] < 224) {
+        unsigned long long value;
+        unsigned long long mask;
+        unsigned long long network;
+        unsigned long long broadcast;
+
+        result->nid_bits = cidr_prefix;
+        result->hid_bits = 32 - cidr_prefix;
+        result->networks = cidr_prefix == 0 ? 1 : (1ULL << cidr_prefix);
+        result->hosts = result->hid_bits > 1 ? (1ULL << result->hid_bits) - 2 : 0;
+
+        value = ((unsigned long long)address[0] << 24) |
+                ((unsigned long long)address[1] << 16) |
+                ((unsigned long long)address[2] << 8) |
+                (unsigned long long)address[3];
+        mask = cidr_prefix == 0 ? 0 : (0xffffffffULL << (32 - cidr_prefix));
+        network = value & mask;
+        broadcast = network | (~mask & 0xffffffffULL);
+
+        for (i = 0; i < 4; i++) {
+            result->network[i] = (network >> (24 - i * 8)) & 255;
+            result->broadcast[i] = (broadcast >> (24 - i * 8)) & 255;
+        }
+        if (result->hosts > 0) {
+            network++;
+            broadcast--;
+            for (i = 0; i < 4; i++) {
+                result->first_usable[i] = (network >> (24 - i * 8)) & 255;
+                result->last_usable[i] = (broadcast >> (24 - i * 8)) & 255;
+            }
+        }
+        return;
+    }
+
     for (i = 0; i < 4; i++) {
         result->network[i] = address[i];
         result->first_usable[i] = address[i];
@@ -92,7 +131,7 @@ void calculate_ip_details(int address[4], struct ip_result *result) {
 int main(void) {
     int socket_fd;
     int client_fd;
-    int address[4];
+    struct ip_request request;
     int option = 1;
     struct sockaddr_in server;
     struct sockaddr_in client;
@@ -112,10 +151,10 @@ int main(void) {
     printf("Waiting for client...\n");
     client_length = sizeof(client);
     client_fd = accept(socket_fd, (struct sockaddr *)&client, &client_length);
-    recv(client_fd, address, sizeof(address), 0);
+    recv(client_fd, &request, sizeof(request), 0);
 
-    if (valid_octets(address))
-        calculate_ip_details(address, &result);
+    if (valid_octets(request.address) && request.prefix >= -1 && request.prefix <= 32)
+        calculate_ip_details(request.address, request.prefix, &result);
     else
         result.class_name = 'I';
 

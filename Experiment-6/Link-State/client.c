@@ -14,12 +14,20 @@ int main() {
     server.sin_port = htons(8080);
     inet_pton(AF_INET, "127.0.0.1", &server.sin_addr);
 
-    connect(s, (struct sockaddr *)&server, sizeof(server));
+    if (connect(s, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        perror("connect");
+        close(s);
+        return 1;
+    }
 
     int n;
 
     printf("Enter number of routers: ");
-    scanf("%d", &n);
+    if (scanf("%d", &n) != 1 || n < 1 || n > 10) {
+        printf("Invalid number of routers.\n");
+        close(s);
+        return 1;
+    }
 
     int a[10][10];
 
@@ -27,7 +35,11 @@ int main() {
 
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            scanf("%d", &a[i][j]);
+            if (scanf("%d", &a[i][j]) != 1 || a[i][j] < 0) {
+                printf("Invalid link cost.\n");
+                close(s);
+                return 1;
+            }
 
             if (a[i][j] == 0 && i != j)
                 a[i][j] = 999;
@@ -37,7 +49,11 @@ int main() {
     int src;
 
     printf("Enter source router: ");
-    scanf("%d", &src);
+    if (scanf("%d", &src) != 1 || src < 0 || src >= n) {
+        printf("Invalid source router.\n");
+        close(s);
+        return 1;
+    }
 
     send(s, &n, sizeof(n), 0);
     send(s, a, sizeof(a), 0);

@@ -13,6 +13,8 @@ int main() {
     server.sin_port = htons(8080);
     server.sin_addr.s_addr = INADDR_ANY;
 
+    int option = 1;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
     bind(s, (sockaddr*)&server, sizeof(server));
     listen(s, 1);
 
@@ -29,29 +31,40 @@ int main() {
     int a[10][10];
     recv(ns, a, sizeof(a), 0);
 
+    if (n < 1 || n > 10) {
+        const char *message = "Invalid number of routers.\n";
+        send(ns, message, strlen(message) + 1, 0);
+        close(ns);
+        close(s);
+        return 0;
+    }
+
     int d[10][10];
     int next[10][10];
 
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            d[i][j] = a[i][j];
-
-            if (i != j && a[i][j] == 0)
-                d[i][j] = 999;
-
-            next[i][j] = j;
+            d[i][j] = (i == j) ? 0 : a[i][j];
+            next[i][j] = (i != j && a[i][j] < 999) ? j : -1;
         }
     }
 
-    for (int k = 0; k < n; k++) {
+    for (int round = 0; round < n - 1; round++) {
+        bool changed = false;
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                if (d[i][k] + d[k][j] < d[i][j]) {
-                    d[i][j] = d[i][k] + d[k][j];
-                    next[i][j] = next[i][k];
+                for (int k = 0; k < n; k++) {
+                    if (d[i][k] < 999 && a[i][j] < 999 &&
+                        d[i][k] + a[k][j] < d[i][j]) {
+                        d[i][j] = d[i][k] + a[k][j];
+                        next[i][j] = (i == k) ? j : next[i][k];
+                        changed = true;
+                    }
                 }
             }
         }
+        if (!changed)
+            break;
     }
 
     char out[10000];

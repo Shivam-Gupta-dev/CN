@@ -34,10 +34,18 @@ int main() {
     int src;
     recv(ns, &src, sizeof(src), 0);
 
+    if (n < 1 || n > 10 || src < 0 || src >= n) {
+        const char *message = "Invalid routing input.\n";
+        send(ns, message, strlen(message) + 1, 0);
+        close(ns);
+        close(s);
+        return 0;
+    }
+
     int d[10], v[10], p[10];
 
     for (int i = 0; i < n; i++) {
-        d[i] = a[src][i];
+        d[i] = a[src][i] >= 999 ? 999 : a[src][i];
         v[i] = 0;
         p[i] = src;
     }
@@ -94,11 +102,15 @@ int main() {
         } else {
             int h = i;
 
-            while (p[h] != src)
+            while (p[h] != src && p[h] != h)
                 h = p[h];
 
-            used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                     "%d\n", h);
+            if (p[h] == h)
+                used += (size_t)snprintf(out + used, sizeof(out) - used,
+                                         "-\n");
+            else
+                used += (size_t)snprintf(out + used, sizeof(out) - used,
+                                         "%d\n", h);
         }
     }
 
