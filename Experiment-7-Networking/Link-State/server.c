@@ -4,7 +4,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int main() {
+int main()
+{
     int s, ns;
     s = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -34,7 +35,8 @@ int main() {
     int src;
     recv(ns, &src, sizeof(src), 0);
 
-    if (n < 1 || n > 10 || src < 0 || src >= n) {
+    if (n < 1 || n > 10 || src < 0 || src >= n)
+    {
         const char *message = "Invalid routing input.\n";
         send(ns, message, strlen(message) + 1, 0);
         close(ns);
@@ -44,7 +46,8 @@ int main() {
 
     int d[10], v[10], p[10];
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         d[i] = a[src][i] >= 999 ? 999 : a[src][i];
         v[i] = 0;
         p[i] = src;
@@ -53,11 +56,14 @@ int main() {
     d[src] = 0;
     v[src] = 1;
 
-    for (int k = 0; k < n - 1; k++) {
+    for (int k = 0; k < n - 1; k++)
+    {
         int m = 999, u = -1;
 
-        for (int i = 0; i < n; i++) {
-            if (!v[i] && d[i] < m) {
+        for (int i = 0; i < n; i++)
+        {
+            if (!v[i] && d[i] < m)
+            {
                 m = d[i];
                 u = i;
             }
@@ -68,9 +74,11 @@ int main() {
 
         v[u] = 1;
 
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
+        {
             if (!v[i] && a[u][i] != 999 &&
-                d[u] + a[u][i] < d[i]) {
+                d[u] + a[u][i] < d[i])
+            {
                 d[i] = d[u] + a[u][i];
                 p[i] = u;
             }
@@ -80,37 +88,35 @@ int main() {
     char out[5000];
     size_t used = 0;
 
-    used += (size_t)snprintf(out + used, sizeof(out) - used,
-                             "\nRouting Table\nDestination\tCost\tNext Hop\n");
+    used += (size_t)snprintf(out + used, sizeof(out) - used, "\nRouting Table\nDestination\tCost\tNext Hop\n");
 
-    for (int i = 0; i < n; i++) {
-        used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                 "%d\t\t", i);
+    for (int i = 0; i < n; i++)
+    {
+        used += (size_t)snprintf(out + used, sizeof(out) - used, "%d\t\t", i);
 
-        if (d[i] >= 999) {
-            used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                     "INF\t-\n");
+        if (d[i] >= 999)
+        {
+            used += (size_t)snprintf(out + used, sizeof(out) - used, "INF\t-\n");
             continue;
         }
 
-        used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                 "%d\t", d[i]);
+        used += (size_t)snprintf(out + used, sizeof(out) - used, "%d\t", d[i]);
 
-        if (i == src) {
-            used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                     "-\n");
-        } else {
+        if (i == src)
+        {
+            used += (size_t)snprintf(out + used, sizeof(out) - used, "-\n");
+        }
+        else
+        {
             int h = i;
 
             while (p[h] != src && p[h] != h)
                 h = p[h];
 
             if (p[h] == h)
-                used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                         "-\n");
+                used += (size_t)snprintf(out + used, sizeof(out) - used, "-\n");
             else
-                used += (size_t)snprintf(out + used, sizeof(out) - used,
-                                         "%d\n", h);
+                used += (size_t)snprintf(out + used, sizeof(out) - used, "%d\n", h);
         }
     }
 

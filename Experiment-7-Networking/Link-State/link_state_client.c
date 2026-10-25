@@ -45,8 +45,7 @@ int main()
     inet_pton(
         AF_INET,
         "127.0.0.1",
-        &serverAddress.sin_addr
-    );
+        &serverAddress.sin_addr);
 
     /*
         Connect
@@ -56,8 +55,7 @@ int main()
     if (connect(
             sock,
             (struct sockaddr *)&serverAddress,
-            sizeof(serverAddress)
-        ) < 0)
+            sizeof(serverAddress)) < 0)
     {
         perror("Connection failed");
         close(sock);
@@ -66,13 +64,11 @@ int main()
 
     printf("Connected to server.\n\n");
 
-
     /*
         Number of routers
     */
     printf("Enter number of routers: ");
     scanf("%d", &n);
-
 
     /*
         Enter graph
@@ -88,7 +84,6 @@ int main()
         }
     }
 
-
     /*
         Source router
     */
@@ -102,7 +97,6 @@ int main()
     printf("\nEnter source router number: ");
     scanf("%d", &source);
 
-
     /*
         Send number of routers
     */
@@ -110,9 +104,7 @@ int main()
         sock,
         &n,
         sizeof(n),
-        0
-    );
-
+        0);
 
     /*
         Send graph
@@ -121,9 +113,7 @@ int main()
         sock,
         graph,
         sizeof(graph),
-        0
-    );
-
+        0);
 
     /*
         Send source
@@ -132,13 +122,10 @@ int main()
         sock,
         &source,
         sizeof(source),
-        0
-    );
-
+        0);
 
     printf("\nTopology sent to server.\n");
     printf("Waiting for routing result...\n");
-
 
     /*
         Receive result
@@ -146,15 +133,13 @@ int main()
     memset(
         buffer,
         0,
-        sizeof(buffer)
-    );
+        sizeof(buffer));
 
     int bytesReceived = recv(
         sock,
         buffer,
         sizeof(buffer) - 1,
-        0
-    );
+        0);
 
     if (bytesReceived <= 0)
     {
@@ -165,7 +150,6 @@ int main()
 
     buffer[bytesReceived] = '\0';
 
-
     /*
         Display result
     */
@@ -174,7 +158,6 @@ int main()
     printf("============================================\n");
 
     printf("%s", buffer);
-
 
     close(sock);
 

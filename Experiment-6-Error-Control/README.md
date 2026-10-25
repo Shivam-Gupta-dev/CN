@@ -93,3 +93,13 @@ Enter bit position to flip (1-14, 0 for none): 1
 Sent frame: 01010110111110
 Server: Error detected. Remainder: 1101
 ```
+
+The client also accepts polynomial notation. For example:
+
+```text
+Enter data bits: 11001
+Enter generator polynomial (for example x^4+x^3+1): x^4+x^3+1
+Generator polynomial: 11001
+```
+
+The server prints each modulo-2 subtraction step and the final remainder.

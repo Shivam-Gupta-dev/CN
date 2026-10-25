@@ -12,15 +12,13 @@
 #define BUFFER_SIZE 4096
 #define INF 9999
 
-
 /*
     Find vertex with minimum distance.
 */
 int findMin(
     int distance[],
     int visited[],
-    int n
-)
+    int n)
 {
     int min = INF;
     int index = -1;
@@ -38,15 +36,13 @@ int findMin(
     return index;
 }
 
-
 /*
     Print shortest path.
 */
 void printPath(
     int parent[],
     int vertex,
-    char *result
-)
+    char *result)
 {
     if (parent[vertex] == -1)
     {
@@ -55,8 +51,7 @@ void printPath(
         sprintf(
             temp,
             "%c",
-            'A' + vertex
-        );
+            'A' + vertex);
 
         strcat(result, temp);
 
@@ -66,20 +61,17 @@ void printPath(
     printPath(
         parent,
         parent[vertex],
-        result
-    );
+        result);
 
     char temp[10];
 
     sprintf(
         temp,
         " -> %c",
-        'A' + vertex
-    );
+        'A' + vertex);
 
     strcat(result, temp);
 }
-
 
 /*
     Dijkstra Algorithm
@@ -88,13 +80,11 @@ void dijkstra(
     int graph[MAX][MAX],
     int n,
     int source,
-    char *result
-)
+    char *result)
 {
     int distance[MAX];
     int visited[MAX];
     int parent[MAX];
-
 
     /*
         Initialize
@@ -106,9 +96,7 @@ void dijkstra(
         parent[i] = -1;
     }
 
-
     distance[source] = 0;
-
 
     /*
         Dijkstra
@@ -120,14 +108,12 @@ void dijkstra(
         int u = findMin(
             distance,
             visited,
-            n
-        );
+            n);
 
         if (u == -1)
             break;
 
         visited[u] = 1;
-
 
         for (int v = 0; v < n; v++)
         {
@@ -135,8 +121,8 @@ void dijkstra(
                 graph[u][v] != 0 &&
                 distance[u] != INF &&
                 distance[u] +
-                graph[u][v] <
-                distance[v])
+                        graph[u][v] <
+                    distance[v])
             {
                 distance[v] =
                     distance[u] +
@@ -146,7 +132,6 @@ void dijkstra(
             }
         }
     }
-
 
     /*
         Create result
@@ -161,9 +146,7 @@ void dijkstra(
         'A' + source,
         "Router",
         "Cost",
-        "Shortest Path"
-    );
-
+        "Shortest Path");
 
     /*
         Add routes
@@ -183,8 +166,7 @@ void dijkstra(
                 line,
                 "%-12c %-10s No path\n",
                 'A' + i,
-                "INF"
-            );
+                "INF");
 
             strcat(result, line);
         }
@@ -193,8 +175,7 @@ void dijkstra(
             printPath(
                 parent,
                 i,
-                path
-            );
+                path);
 
             char line[300];
 
@@ -203,14 +184,12 @@ void dijkstra(
                 "%-12c %-10d %-30s\n",
                 'A' + i,
                 distance[i],
-                path
-            );
+                path);
 
             strcat(result, line);
         }
     }
 }
-
 
 int main()
 {
@@ -229,22 +208,19 @@ int main()
 
     char result[BUFFER_SIZE];
 
-
     /*
         Create socket
     */
     serverSocket = socket(
         AF_INET,
         SOCK_STREAM,
-        0
-    );
+        0);
 
     if (serverSocket < 0)
     {
         perror("Socket creation failed");
         return 1;
     }
-
 
     /*
         Server address
@@ -257,30 +233,25 @@ int main()
     serverAddress.sin_port =
         htons(PORT);
 
-
     /*
         Bind
     */
     if (bind(
             serverSocket,
             (struct sockaddr *)&serverAddress,
-            sizeof(serverAddress)
-        ) < 0)
+            sizeof(serverAddress)) < 0)
     {
         perror("Bind failed");
         close(serverSocket);
         return 1;
     }
 
-
     /*
         Listen
     */
     listen(
         serverSocket,
-        5
-    );
-
+        5);
 
     printf("============================================\n");
     printf("       LINK STATE ROUTING SERVER\n");
@@ -288,7 +259,6 @@ int main()
 
     printf("Waiting for client on port %d...\n",
            PORT);
-
 
     /*
         Accept
@@ -299,9 +269,7 @@ int main()
     clientSocket = accept(
         serverSocket,
         (struct sockaddr *)&clientAddress,
-        &clientLength
-    );
-
+        &clientLength);
 
     if (clientSocket < 0)
     {
@@ -310,9 +278,7 @@ int main()
         return 1;
     }
 
-
     printf("Client connected.\n");
-
 
     /*
         Receive number of routers
@@ -321,9 +287,7 @@ int main()
         clientSocket,
         &n,
         sizeof(n),
-        0
-    );
-
+        0);
 
     /*
         Receive graph
@@ -332,9 +296,7 @@ int main()
         clientSocket,
         graph,
         sizeof(graph),
-        0
-    );
-
+        0);
 
     /*
         Receive source
@@ -343,14 +305,11 @@ int main()
         clientSocket,
         &source,
         sizeof(source),
-        0
-    );
-
+        0);
 
     printf("Network topology received.\n");
 
     printf("Running Dijkstra algorithm...\n");
-
 
     /*
         Run Dijkstra
@@ -359,15 +318,12 @@ int main()
         graph,
         n,
         source,
-        result
-    );
-
+        result);
 
     /*
         Print on server
     */
     printf("\n%s\n", result);
-
 
     /*
         Send result to client
@@ -376,12 +332,9 @@ int main()
         clientSocket,
         result,
         strlen(result),
-        0
-    );
-
+        0);
 
     printf("Result sent to client.\n");
-
 
     close(clientSocket);
     close(serverSocket);
